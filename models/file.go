@@ -1,8 +1,8 @@
 package models
 
 const (
-	FILE_TYPE = "FILE"
-	DIR_TYPE  = "DIR"
+	FileType = "FILE"
+	DirType  = "DIR"
 )
 
 type File struct {

@@ -4,11 +4,11 @@ import (
 	"PGCloudDisk/config"
 	"PGCloudDisk/utils/lg"
 	"fmt"
-	gormMysql "gorm.io/driver/mysql"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-var db *gorm.DB
+var conn *gorm.DB
 
 func Init() {
 	var (
@@ -25,7 +25,7 @@ func Init() {
 		user, pwd, host, port, dbname, charset)
 
 	var err error
-	db, err = gorm.Open(gormMysql.Open(dsn), &gorm.Config{})
+	conn, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		lg.Logger.Fatalln("Load mysql Failed")
 	}

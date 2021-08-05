@@ -8,12 +8,17 @@ import (
 )
 
 type cfg struct {
-	Log logCfg `yaml:"log"`
-	MySQL mysqlCfg `yaml:"mysql"`
+	Log    logCfg   `yaml:"log"`
+	MySQL  mysqlCfg `yaml:"mysql"`
+	JwtCfg JwtCfg   `yaml:"jwt"`
 }
 
 type logCfg struct {
 	Filename string `yaml:"filename"`
+}
+
+type JwtCfg struct {
+	JwtSecret string `yaml:"jwtSecret"`
 }
 
 type mysqlCfg struct {
