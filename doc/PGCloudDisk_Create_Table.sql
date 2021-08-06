@@ -7,7 +7,7 @@ CREATE TABLE `users` (
   `created_at` datetime DEFAULT (now()),
   `updated_at` datetime DEFAULT null,
   `deleted_at` datetime DEFAULT null,
-  `username` varchar(50) NOT NULL,
+  `username` varchar(50) NOT NULL UNIQUE,
   `password` varchar(128) NOT NULL
 );
 
@@ -19,7 +19,7 @@ CREATE TABLE `files` (
   `filename` varchar(256) NOT NULL,
   `size` bigint DEFAULT null,
   `location` varchar(1024) NOT NULL,
-  `local_addr` varchar(1024) NOT NULL,
+  `local_addr` varchar(1024),
   `type` char(8) NOT NULL,
   `user_id` bigint NOT NULL
 );

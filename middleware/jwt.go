@@ -8,18 +8,13 @@ import (
 	"net/http"
 )
 
-type tok struct {
-	Token string `json:"token"`
-}
-
 func Jwt() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := errno.RespCode{Code: errno.RespSuccess}
 
 		// 获取token
-		tk := tok{}
-		err := c.ShouldBindJSON(&tk)
-		if err != nil {
+		token := c.Request.Header.Get("token")
+		if token == "" {
 			code.Code = errno.RespInvalidParams
 			utils.Response(c, http.StatusBadRequest, code, nil)
 			c.Abort()
@@ -27,8 +22,9 @@ func Jwt() gin.HandlerFunc {
 		}
 
 		// 解析token
-		claims, status := utils.ParseToken(tk.Token)
+		claims, status := utils.ParseToken(token)
 		if status.Success() {
+			c.Set("user_id", claims.ID)
 			c.Set("username", claims.Username)
 		} else {
 			lg.Logger.Println(status.Msg())

@@ -8,3 +8,5 @@ mysql:
   dbname: "PGCloudDisk"
 jwt:
   jwtSecret: "PGCloudDisk"
+localSave:
+  root: "D:/tempFiles"

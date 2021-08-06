@@ -6,11 +6,14 @@ const (
 	UserNotFound
 	UserNamePwdNotMatched
 	UserNameRepeated
+	UserInfoGetFailed
+	FileNotFound
 	FileAddFailed
 	FileDeleteFailed
 	FileUpdateFailed
 	FileFindOfUserFailed
 	FileFindOfUserByName
+	FileAddRepeated
 	CreateTokenFailed
 	ParseTokenFailed
 )
@@ -21,11 +24,14 @@ var statusMsg []string = []string{
 	"UserNotFound",
 	"UserNamePwdNotMatched",
 	"UserNameRepeated",
+	"UserInfoGetFailed",
+	"FileNotFound",
 	"FileAddFailed",
 	"FileDeleteFailed",
 	"FileUpdateFailed",
 	"FileFindOfUserFailed",
 	"FileFindOfUserByName",
+	"FileAddRepeated",
 	"CreateTokenFailed",
 	"ParseTokenFailed",
 }

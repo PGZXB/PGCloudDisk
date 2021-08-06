@@ -3,6 +3,7 @@ package db
 import (
 	"PGCloudDisk/errno"
 	"PGCloudDisk/models"
+	"github.com/go-playground/assert/v2"
 	"gorm.io/gorm"
 )
 
@@ -35,5 +36,22 @@ func AddUser(username, password string) (s errno.Status) {
 		return
 	}
 
+	return
+}
+
+func GetUserInfo(username string) (user models.User, s errno.Status) {
+	err := conn.Select("id, username").Where("username = ?", username).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		s.Code = errno.UserNotFound
+		user = models.User{}
+		return
+	}
+
+	if err != nil {
+		s.Code = errno.UserInfoGetFailed
+		user = models.User{}
+	}
+
+	assert.IsEqual(s.Code, errno.Success)
 	return
 }

@@ -7,15 +7,31 @@ const (
 	RespAuthUserNotFound
 	RespAuthUserNamePwdNotMatched
 	RespTokenCheckFailed
+	RespGetUserInfoFailed
+	RespRequestFileTypeInvalid
+	RespRequestFilenameInvalid
+	RespRequestLocationInvalid
+	RespVirtualPathNotFound
+	RespAddFileFailed
+	RespSaveFileFailed
+	RespAddFileRepeated
 )
 
 var respCodeMsg []string = []string{
 	"Response Successfully",
 	"RespFailed",
-	"InvalidParams",
+	"Invalid Request Params",
 	"用户不存在",
 	"密码错误",
 	"Token Checking Failed",
+	"获取用户信息失败",
+	"文件类型错误",
+	"文件名不合法",
+	"文件路径不合法",
+	"虚拟路径不存在",
+	"文件添加失败",
+	"文件存储失败",
+	"添加同名文件或路径",
 }
 
 type RespCode struct {

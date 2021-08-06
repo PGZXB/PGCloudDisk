@@ -6,18 +6,32 @@ import (
 	"PGCloudDisk/utils"
 	"PGCloudDisk/utils/lg"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/assert/v2"
 	"net/http"
 )
 
+type auth struct {
+	Username string `json:"username" form:"username"`
+	Password string `json:"password" form:"password"`
+}
+
+type userInfoCanBePublished struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+// Auth the user(POST api/v1/auth)
 func Auth(c *gin.Context) {
 	// 获取username & password
-	username, ok1 := c.GetPostForm("username")
-	pwd, ok2 := c.GetPostForm("password")
-
-	if !ok1 || !ok2 {
-		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespFailed}, nil)
+	auth := auth{}
+	err := c.ShouldBind(&auth)
+	if err != nil || auth.Username == "" || auth.Password == "" {
+		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespInvalidParams}, nil)
 		return
 	}
+
+	username := auth.Username
+	pwd := auth.Password
 
 	// 验证, 如果成功返回Token
 	status := db.UserCheck(username, pwd)
@@ -43,4 +57,38 @@ func Auth(c *gin.Context) {
 	default:
 		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespFailed}, nil)
 	}
+}
+
+// GetUserInfo get user info(GET api/v1/user-infos)
+func GetUserInfo(c *gin.Context) {
+	uname, ok := c.Get("username")
+	if !ok {
+		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespInvalidParams}, nil)
+		return
+	}
+
+	username, ok := uname.(string)
+	if !ok {
+		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespInvalidParams}, nil)
+		return
+	}
+
+	user, status := db.GetUserInfo(username)
+	if status.Code == errno.UserNotFound {
+		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespAuthUserNotFound}, nil)
+		return
+	}
+
+	if status.Code == errno.UserInfoGetFailed {
+		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespGetUserInfoFailed}, nil)
+		return
+	}
+
+	assert.IsEqual(status.Code, errno.Success)
+	utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.Success}, gin.H{
+		"userinfo": userInfoCanBePublished{
+			ID:       user.ID,
+			Username: user.Username,
+		},
+	})
 }

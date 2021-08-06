@@ -6,12 +6,12 @@ import (
 )
 
 type RespMsg struct {
-	Code uint32                 `json:"code"`
-	Msg  string                 `json:"msg"`
-	Data map[string]interface{} `json:"data"`
+	Code uint32      `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
 }
 
-func Response(c *gin.Context, httpCode int, code errno.RespCode, data map[string]interface{}) {
+func Response(c *gin.Context, httpCode int, code errno.RespCode, data interface{}) {
 	c.JSON(httpCode, RespMsg{
 		code.Code,
 		code.Msg(),
