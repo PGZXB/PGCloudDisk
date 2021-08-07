@@ -10,3 +10,6 @@ jwt:
   jwtSecret: "PGCloudDisk"
 localSave:
   root: "D:/tempFiles"
+  trash: "D:/tempFiles/trash"
+runMode:
+  debug: true

@@ -15,6 +15,8 @@ const (
 	RespAddFileFailed
 	RespSaveFileFailed
 	RespAddFileRepeated
+	RespFileNotFound
+	RespFileDeleteFailed
 )
 
 var respCodeMsg []string = []string{
@@ -32,6 +34,8 @@ var respCodeMsg []string = []string{
 	"文件添加失败",
 	"文件存储失败",
 	"添加同名文件或路径",
+	"文件不存在",
+	"文件删除失败",
 }
 
 type RespCode struct {

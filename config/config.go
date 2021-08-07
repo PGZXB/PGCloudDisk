@@ -15,6 +15,7 @@ type cfg struct {
 	MySQL        mysqlCfg     `yaml:"mysql"`
 	JwtCfg       jwtCfg       `yaml:"jwt"`
 	LocalSaveCfg localSaveCfg `yaml:"localSave"`
+	RunMode      runMode      `yaml:"runMode"`
 }
 
 type logCfg struct {
@@ -35,7 +36,12 @@ type mysqlCfg struct {
 }
 
 type localSaveCfg struct {
-	Root string `yaml:"root"`
+	Root      string `yaml:"root"`
+	TrashPath string `yaml:"trash"`
+}
+
+type runMode struct {
+	IsDebug bool `yaml:"debug"`
 }
 
 var Cfg *cfg
@@ -71,8 +77,6 @@ func init() {
 	// 验证localSave.Root的合法性, 不合法则产生默认目录
 	if !fileutils.IsDir(Cfg.LocalSaveCfg.Root) {
 
-		log.Println("Use Default Local-Save Root Path")
-
 		// 默认在 运行路径/CloudDiskFiles
 		path, err := os.Getwd()
 		if err != nil {
@@ -82,13 +86,36 @@ func init() {
 
 		// 目录存在则以, 不存在则要创建
 		if !fileutils.IsDir(path) {
-			err = os.Mkdir(path, 0755)
+			err = os.MkdirAll(path, 0755)
 			if err != nil {
 				log.Fatalln("Create LocalSave Path Failed")
 			}
 		}
 
 		Cfg.LocalSaveCfg.Root = path
+		log.Printf("Use Default Local-Save Root Path : %s\n", path)
+	}
+
+	// 验证localSave.Trash的合法性, 不合法则产生默认目录
+	if !fileutils.IsDir(Cfg.LocalSaveCfg.TrashPath) {
+
+		// 默认在 运行路径/CloudDiskFiles/Trans
+		path, err := os.Getwd()
+		if err != nil {
+			log.Fatalln("Get Current Path Failed")
+		}
+		path = filepath.Join(path, "CloudDiskFiles", "Trans")
+
+		// 目录存在则以, 不存在则要创建
+		if !fileutils.IsDir(path) {
+			err = os.MkdirAll(path, 0755)
+			if err != nil {
+				log.Fatalln("Create Trans Path Failed")
+			}
+		}
+
+		Cfg.LocalSaveCfg.TrashPath = path
+		log.Printf("Use Default Trash Path : %s\n", path)
 	}
 
 	bytes, _ = yaml.Marshal(&Cfg)
