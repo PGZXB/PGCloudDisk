@@ -4,6 +4,7 @@ import (
 	"PGCloudDisk/errno"
 	"PGCloudDisk/models"
 	"gorm.io/gorm"
+	"strings"
 )
 
 func AddFile(file *models.File) (s errno.Status) {
@@ -71,6 +72,104 @@ func FindFilesRecursively(id int64) (res []models.File, s errno.Status) {
 		return nil, errno.Status{Code: errno.FileNotFound}
 	}
 	return res, s
+}
+
+func FindFileOfUserWithFilter(userID int64, args *models.FileInfoQueryArgs) (res []models.FileInfoCanBePublicized, s errno.Status) {
+	var queryPatterns = make([]string, 0, 8)
+	var queryArgs = make([]interface{}, 0, 8)
+
+	var findAtLocation = false
+	var location string
+	if args.LocationID != -1 {
+		findAtLocation = true
+		loc := models.File{}
+		if err := conn.Where("id = ? AND user_id = ? AND type = 'DIR'", args.LocationID, userID).First(&loc).Error; err != nil {
+			s.Code = errno.FileNotFound
+			return
+		}
+		location = loc.Location + loc.Filename + "/"
+	}
+
+	queryPatterns = append(queryPatterns, "user_id = ?")
+	queryArgs = append(queryArgs, userID)
+
+	if args.IDRange != nil {
+		if args.IDRange[0] == args.IDRange[1] {
+			queryPatterns = append(queryPatterns, "id = ?")
+			queryArgs = append(queryArgs, args.IDRange[0])
+		} else {
+			queryPatterns = append(queryPatterns, "id >= ? AND id <= ?")
+			queryArgs = append(queryArgs, args.IDRange[0], args.IDRange[1])
+		}
+	}
+
+	if args.TypeEnum != "" {
+		queryPatterns = append(queryPatterns, "type = ?")
+		queryArgs = append(queryArgs, args.TypeEnum)
+	}
+
+	if args.SizeRange != nil {
+		if args.SizeRange[0] == args.SizeRange[1] {
+			queryPatterns = append(queryPatterns, "size = ?")
+			queryArgs = append(queryArgs, args.SizeRange[0])
+		} else {
+			queryPatterns = append(queryPatterns, "size >= ? AND size <= ?")
+			queryArgs = append(queryArgs, args.SizeRange[0], args.SizeRange[1])
+		}
+	}
+
+	if args.CreatedAtRange != nil {
+		if args.CreatedAtRange[0].Equal(args.CreatedAtRange[1]) {
+			queryPatterns = append(queryPatterns, "created_at = ?")
+			queryArgs = append(queryArgs, args.CreatedAtRange[0])
+		} else {
+			queryPatterns = append(queryPatterns, "created_at >= ? AND created_at <= ?")
+			queryArgs = append(queryArgs, args.CreatedAtRange[0], args.CreatedAtRange[1])
+		}
+	}
+
+	if args.UpdatedAtRange != nil {
+		if args.UpdatedAtRange[0].Equal(args.UpdatedAtRange[1]) {
+			queryPatterns = append(queryPatterns, "updated_at = ?")
+			queryArgs = append(queryArgs, args.UpdatedAtRange[0])
+		} else {
+			queryPatterns = append(queryPatterns, "updated_at >= ? AND updated_at <= ?")
+			queryArgs = append(queryArgs, args.UpdatedAtRange[0], args.UpdatedAtRange[1])
+		}
+	}
+
+	if args.DeletedAtRange != nil {
+		if args.DeletedAtRange[0].Equal(args.DeletedAtRange[1]) {
+			queryPatterns = append(queryPatterns, "deleted_at = ?")
+			queryArgs = append(queryArgs, args.DeletedAtRange[0])
+		} else {
+			queryPatterns = append(queryPatterns, "deleted_at >= ? AND deleted_at <= ?")
+			queryArgs = append(queryArgs, args.DeletedAtRange[0], args.DeletedAtRange[1])
+		}
+	}
+
+	if findAtLocation {
+		queryPatterns = append(queryPatterns, "location = ?")
+		queryArgs = append(queryArgs, location)
+	} else if args.LocationKeyword != "" { // 探索更好的做法(比如应用层过滤)
+		queryPatterns = append(queryPatterns, "location LIKE ?")
+		queryArgs = append(queryArgs, "%"+args.LocationKeyword+"%")
+	}
+
+	if args.FilenameKeyword != "" { // 探索更好的做法(比如应用层过滤)
+		queryPatterns = append(queryPatterns, "filename LIKE ?")
+		queryArgs = append(queryArgs, "%"+args.FilenameKeyword+"%")
+	}
+
+	queryPattern := strings.Join(queryPatterns, " AND ")
+	result := conn.Model(&models.File{}).Where(queryPattern, queryArgs...).Find(&res)
+	if result.Error != nil {
+		res = nil
+		s = errno.Status{Code: errno.FileFindWithFilterFailed}
+		return
+	}
+
+	return
 }
 
 // 禁止修改文件元信息

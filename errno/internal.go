@@ -13,6 +13,7 @@ const (
 	FileUpdateFailed
 	FileFindOfUserFailed
 	FileFindOfUserByNameFailed
+	FileFindWithFilterFailed
 	FileAddRepeated
 	CreateTokenFailed
 	ParseTokenFailed
@@ -31,6 +32,7 @@ var statusMsg []string = []string{
 	"FileUpdateFailed",
 	"FileFindOfUserFailed",
 	"FileFindOfUserByNameFailed",
+	"FileFindWithFilterFailed",
 	"FileAddRepeated",
 	"CreateTokenFailed",
 	"ParseTokenFailed",

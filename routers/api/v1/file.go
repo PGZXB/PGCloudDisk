@@ -9,6 +9,7 @@ import (
 	"PGCloudDisk/utils/fileutils"
 	"PGCloudDisk/utils/lg"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/assert/v2"
@@ -18,14 +19,16 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // UploadFile upload a file(POST api/v1/files)
 // only allow upload small file, content is in request-form "file"
 // meta-info least : Filename(filename) LocationID(location_id) Type(type)
-// response data : JSON(FileInfoCanBePublished)
+// response data : JSON(FileInfoCanBePublicized)
 func UploadFile(c *gin.Context) {
 	fInfo := struct {
 		Filename   string `json:"filename" form:"filename"`
@@ -44,11 +47,15 @@ func UploadFile(c *gin.Context) {
 		return
 	}
 
-	// 验证Filename的合法性, 只要Filename不为空都合法(这是展示给用户的虚拟文件名, 并非文件系统实际存储的文件名)
-	if len(fInfo.Filename) == 0 {
+	// 验证Filename的合法性, 只许有字母/汉字/下划线(这是展示给用户的虚拟文件名, 并非文件系统实际存储的文件名)
+	fInfo.Filename = strings.TrimSpace(fInfo.Filename)
+	filenameBytes := len([]byte(fInfo.Filename))
+	if filenameBytes <= 0 || filenameBytes > 255 {
 		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespRequestFilenameInvalid}, nil)
 		return
 	}
+
+	// TODO : Check Filename(只许有字母/汉字/下划线) And Namify
 
 	// 如果是File是否有"file"
 	var fileHeader *multipart.FileHeader
@@ -144,7 +151,7 @@ func UploadFile(c *gin.Context) {
 	if allSuccess {
 		res, s := db.FindFilesOfUserByName(fileModel.UserID, fileModel.Filename)
 		if !s.Success() {
-			utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespFailed}, models.FileInfoCanBePublished{
+			utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespFailed}, models.FileInfoCanBePublicized{
 				ID:        fileModel.ID,
 				CreatedAt: time.Time{},
 				UpdatedAt: time.Time{},
@@ -157,7 +164,7 @@ func UploadFile(c *gin.Context) {
 			return
 		}
 		fileM := res[fileModel.Filename]
-		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespSuccess}, models.FileInfoCanBePublished{
+		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespSuccess}, models.FileInfoCanBePublicized{
 			ID:        fileM.ID,
 			CreatedAt: fileM.CreatedAt.Time,
 			UpdatedAt: fileM.UpdatedAt.Time,
@@ -285,7 +292,7 @@ func GetFileInfo(c *gin.Context) {
 		return
 	}
 
-	utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespSuccess}, models.FileInfoCanBePublished{
+	utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespSuccess}, models.FileInfoCanBePublicized{
 		ID:        fileM.ID,
 		CreatedAt: fileM.CreatedAt.Time,
 		UpdatedAt: fileM.UpdatedAt.Time,
@@ -298,17 +305,130 @@ func GetFileInfo(c *gin.Context) {
 }
 
 // GetFileInfosWithFilter get file with filter(GET api/v1/file-infos?)
-// filter : min-id max-id id                    : ID
-//          cre-at-start cre-at-end cre-at      : CreatedAt
-//          u-at-start u-at-end u-at            : UpdatedAt
-//          d-at-start u-at-end d-at            : DeletedAt
-//          fname-key                           : Filename-Keyword
-//          min-size max-size size              : Size
-//          loc-key                             : Location-Keyword
-//          type                                : Type
+//
+// filters : | arg-name | meaning     | struct-attribute  | limit
+//           | --------------------------------------------------------------
+//           | id       | range       | ID                | int64-int64
+//           | creat    | range       | CreatedAt         | YYYYMMDDhhmmss-YYYYMMDDhhmmss
+//           | updat    | range       | UpdatedAt         | YYYYMMDDhhmmss-YYYYMMDDhhmmss
+//           | delat    | range       | DeletedAt         | YYYYMMDDhhmmss-YYYYMMDDhhmmss
+//           | fnamekey | keyword     | Filename(Keyword) | `^([._a-z0-9A-Z\p{Han}])*$`(bytes-size:[1, 255])
+//           | size     | range       | Size              | int64-int64
+//           | lockey   | range       | Location(Keyword) | `^([._a-z0-9A-Z\p{Han}])*$`(bytes-size:[1, 1024])
+//           | type     | enum(f, d)  | Type              | `[fd]`
+//           | locid    |   -------   |   -------         | int64
+// range :  string like '<a>-<b>', bounded interval, the validity of a and b will be checked.
+// keyword : string, keyword for searching, will be checked.
+// All string will be trimmed.
+// If query-args is invalid, the invalid argument will be ignored and the event will be logged.
 func GetFileInfosWithFilter(c *gin.Context) {
-	// TODO : Get FileInfos With Filter.
-	c.Writer.WriteHeader(http.StatusNotFound)
+	// 获取user-id
+	uid, ok := c.Get("user_id")
+	userId, ok := uid.(int64)
+	if !ok {
+		lg.Logger.Println("Get user_id Failed")
+		utils.Response(c, http.StatusInternalServerError, errno.RespCode{Code: errno.RespFailed}, nil)
+		return
+	}
+
+	queryArgs := struct {
+		IDRange         string `form:"id"`
+		CreatedAtRange  string `form:"creat"`
+		UpdatedAtRange  string `form:"updat"`
+		DeletedAtRange  string `form:"delat"`
+		FilenameKeyword string `form:"fnamekey"`
+		SizeRange       string `form:"size"`
+		LocationKeyword string `form:"lockey"`
+		TypeEnum        string `form:"type"`
+		LocationID      int64  `form:"locid,default=-1"`
+	}{}
+
+	err := c.ShouldBindQuery(&queryArgs)
+	if err != nil {
+		utils.Response(c, http.StatusBadRequest, errno.RespCode{Code: errno.RespRequestFileTypeInvalid}, nil)
+		return
+	}
+
+	jsonStr, _ := json.Marshal(queryArgs)
+	lg.Logger.Println(string(jsonStr))
+
+	// Don't Trim, Frontend Should Do It
+	//queryArgs.IDRange = strings.TrimSpace(queryArgs.IDRange)
+	//queryArgs.CreatedAtRange = strings.TrimSpace(queryArgs.CreatedAtRange)
+	//queryArgs.UpdatedAtRange = strings.TrimSpace(queryArgs.UpdatedAtRange)
+	//queryArgs.DeletedAtRange = strings.TrimSpace(queryArgs.DeletedAtRange)
+	//queryArgs.FilenameKeyword = strings.TrimSpace(queryArgs.FilenameKeyword)
+	//queryArgs.SizeRange = strings.TrimSpace(queryArgs.SizeRange)
+	//queryArgs.LocationKeyword = strings.TrimSpace(queryArgs.LocationKeyword)
+	//queryArgs.TypeEnum = strings.TrimSpace(queryArgs.TypeEnum)
+
+	checkInt64Positive := func(i64 int64) bool { return i64 >= 0 }
+	checkTime := func(t time.Time) bool { return true }
+	splitter := "-"
+
+	var queryArgsParsed models.FileInfoQueryArgs
+	queryArgsParsed.IDRange = utils.GetInt64Range(queryArgs.IDRange, splitter, checkInt64Positive)
+	queryArgsParsed.CreatedAtRange = utils.GetTimeRange(queryArgs.CreatedAtRange, splitter, checkTime)
+	queryArgsParsed.UpdatedAtRange = utils.GetTimeRange(queryArgs.UpdatedAtRange, splitter, checkTime)
+	queryArgsParsed.DeletedAtRange = utils.GetTimeRange(queryArgs.DeletedAtRange, splitter, checkTime)
+	queryArgsParsed.SizeRange = utils.GetInt64Range(queryArgs.SizeRange, splitter, checkInt64Positive)
+
+	// Check Validity Of TypeEnum
+	if queryArgs.TypeEnum == "FILE" || queryArgs.TypeEnum == "DIR" {
+		queryArgsParsed.TypeEnum = queryArgs.TypeEnum
+	}
+
+	// Check Validity Of FilenameKeyword
+	regExpStr := `^([._a-z0-9A-Z\p{Han}])*$` // 文件_a1.jpg
+	reg, err := regexp.Compile(regExpStr)
+	if err != nil {
+		utils.Response(c, http.StatusInternalServerError, errno.RespCode{Code: errno.RespFailed}, nil)
+		lg.Logger.Printf("Compile Regexp %s Failed\n", regExpStr)
+		return
+	}
+	byteSize := len([]byte(queryArgs.FilenameKeyword))
+	if byteSize >= models.FilenameMinByteSize &&
+		byteSize <= models.FilenameMaxByteSize &&
+		reg.MatchString(queryArgs.FilenameKeyword) {
+
+		queryArgsParsed.FilenameKeyword = queryArgs.FilenameKeyword
+	}
+
+	// Check Validity Of LocationKeyword
+	regExpStr = `^([/._a-z0-9A-Z\p{Han}])*$` // 文件_a1.jpg
+	reg, err = regexp.Compile(regExpStr)
+	if err != nil {
+		utils.Response(c, http.StatusInternalServerError, errno.RespCode{Code: errno.RespFailed}, nil)
+		lg.Logger.Printf("Compile Regexp %s Failed\n", regExpStr)
+		return
+	}
+	byteSize = len([]byte(queryArgs.LocationKeyword))
+	if byteSize >= models.LocationMinByteSize &&
+		byteSize <= models.LocationMaxByteSize &&
+		reg.MatchString(queryArgs.LocationKeyword) {
+
+		queryArgsParsed.LocationKeyword = queryArgs.LocationKeyword
+	}
+
+	// LocationID
+	queryArgsParsed.LocationID = queryArgs.LocationID
+
+	jsonStr, _ = json.Marshal(queryArgsParsed)
+	lg.Logger.Println(string(jsonStr))
+
+	fInfos, status := db.FindFileOfUserWithFilter(userId, &queryArgsParsed)
+	if !status.Success() {
+		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespFailed}, nil)
+		return
+	}
+
+	utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespSuccess}, fInfos)
+}
+
+// GetFilesInfoAtLocation get info of files at location(GET api/v1/file-infos/)
+//
+func GetFilesInfoAtLocation(c *gin.Context) {
+
 }
 
 // DownloadFile download a file(GET api/v1/files/:id)
@@ -396,6 +516,7 @@ func getFileIdAndUserId(c *gin.Context) (int64, int64, bool) {
 	uid, ok := c.Get("user_id")
 	userId, ok := uid.(int64)
 	if !ok {
+		lg.Logger.Println("Get user_id Failed")
 		utils.Response(c, http.StatusInternalServerError, errno.RespCode{Code: errno.RespFailed}, nil)
 		return 0, 0, false
 	}
