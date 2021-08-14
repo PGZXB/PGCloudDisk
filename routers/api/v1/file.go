@@ -9,7 +9,6 @@ import (
 	"PGCloudDisk/utils/fileutils"
 	"PGCloudDisk/utils/lg"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/assert/v2"
@@ -349,8 +348,8 @@ func GetFileInfosWithFilter(c *gin.Context) {
 		return
 	}
 
-	jsonStr, _ := json.Marshal(queryArgs)
-	lg.Logger.Println(string(jsonStr))
+	//jsonStr, _ := json.Marshal(queryArgs)
+	//lg.Logger.Println(string(jsonStr))
 
 	// Don't Trim, Frontend Should Do It
 	//queryArgs.IDRange = strings.TrimSpace(queryArgs.IDRange)
@@ -413,8 +412,8 @@ func GetFileInfosWithFilter(c *gin.Context) {
 	// LocationID
 	queryArgsParsed.LocationID = queryArgs.LocationID
 
-	jsonStr, _ = json.Marshal(queryArgsParsed)
-	lg.Logger.Println(string(jsonStr))
+	//jsonStr, _ = json.Marshal(queryArgsParsed)
+	//lg.Logger.Println(string(jsonStr))
 
 	fInfos, status := db.FindFileOfUserWithFilter(userId, &queryArgsParsed)
 	if !status.Success() {

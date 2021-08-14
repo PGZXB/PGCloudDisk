@@ -31,14 +31,14 @@ type FileInfoCanBeUpdated struct {
 }
 
 type FileInfoCanBePublicized struct {
-	ID        int64     `json:"id,omitempty" form:"id"`
-	CreatedAt time.Time `json:"created_at,omitempty" form:"created_at"`
-	UpdatedAt time.Time `json:"updated_at,omitempty" form:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at,omitempty" form:"deleted_at"`
-	Filename  string    `json:"filename,omitempty" form:"filename"`
-	Size      int64     `json:"size,omitempty" form:"size"`
-	Location  string    `json:"location,omitempty" form:"location"`
-	Type      string    `json:"type,omitempty" form:"type"`
+	ID        int64     `json:"id" form:"id"`
+	CreatedAt time.Time `json:"created_at" form:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" form:"updated_at"`
+	DeletedAt time.Time `json:"deleted_at" form:"deleted_at"`
+	Filename  string    `json:"filename" form:"filename"`
+	Size      int64     `json:"size" form:"size"`
+	Location  string    `json:"location" form:"location"`
+	Type      string    `json:"type" form:"type"`
 }
 
 type FileInfoQueryArgs struct {

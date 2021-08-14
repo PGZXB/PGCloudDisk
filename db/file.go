@@ -172,6 +172,14 @@ func FindFileOfUserWithFilter(userID int64, args *models.FileInfoQueryArgs) (res
 	return
 }
 
+func FindRootLocationOfUser(userID int64) (res models.File, s errno.Status) {
+	if err := conn.Where("user_id = ? AND filename = ? AND location = ?", userID, "", "").First(&res).Error; err != nil {
+		s.Code = errno.FileNotFound
+		return
+	}
+	return
+}
+
 // 禁止修改文件元信息
 // func UpdateFileOfUser(userId int64, id int64, to *models.FileInfoCanBeUpdated) (s errno.Status) {
 //   data, _ := json.Marshal(to)

@@ -3,6 +3,7 @@ package v1
 import (
 	"PGCloudDisk/db"
 	"PGCloudDisk/errno"
+	"PGCloudDisk/models"
 	"PGCloudDisk/utils"
 	"PGCloudDisk/utils/lg"
 	"github.com/gin-gonic/gin"
@@ -84,11 +85,27 @@ func GetUserInfo(c *gin.Context) {
 		return
 	}
 
+	root, status := db.FindRootLocationOfUser(user.ID)
+	if !status.Success() {
+		utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.RespGetUserInfoFailed}, nil)
+		return
+	}
+
 	assert.IsEqual(status.Code, errno.Success)
 	utils.Response(c, http.StatusOK, errno.RespCode{Code: errno.Success}, gin.H{
 		"userinfo": userInfoCanBePublished{
 			ID:       user.ID,
 			Username: user.Username,
+		},
+		"rootLocation": models.FileInfoCanBePublicized{
+			ID:        root.ID,
+			CreatedAt: root.CreatedAt.Time,
+			UpdatedAt: root.UpdatedAt.Time,
+			DeletedAt: root.DeletedAt.Time,
+			Filename:  root.Filename,
+			Size:      root.Size,
+			Location:  root.Location,
+			Type:      root.Type,
 		},
 	})
 }
