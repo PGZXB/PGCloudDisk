@@ -15,10 +15,13 @@ func Jwt() gin.HandlerFunc {
 		// 获取token
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			code.Code = errno.RespInvalidParams
-			utils.Response(c, http.StatusBadRequest, code, nil)
-			c.Abort()
-			return
+			token = c.Query("t")
+			if token == "" {
+				code.Code = errno.RespInvalidParams
+				utils.Response(c, http.StatusBadRequest, code, nil)
+				c.Abort()
+				return
+			}
 		}
 
 		// 解析token

@@ -546,8 +546,8 @@ func mvFilesToTrans(destDirAddr string, files []models.File) (cnt int64) {
 				lg.Logger.Printf("Server Error, Move(Rename) %s Failed When Calling DeleteFile\n", destDirAddr)
 				continue
 			}
+			cnt++
 		}
-		cnt++
 	}
 	return cnt
 }
